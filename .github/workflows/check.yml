@@ -1,0 +1,21 @@
+name: Validate sites
+
+# Applies the CLAUDE.md contract to every site in sites/: brief + README present,
+# HTML basics, resolving links, language parity. Zero dependencies.
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - run: node check.mjs
