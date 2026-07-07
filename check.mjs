@@ -11,6 +11,11 @@
  *    balanced structural tags, and internal links/assets that resolve
  *  - language subfolders mirror the top-level page set exactly (file parity)
  *  - TODO stubs are counted and reported (visibility, not failure)
+ *  - design-token sync: every hex color a brief or external-AI prompt specifies
+ *    must exist in the site's stylesheets, and every :root token in the
+ *    stylesheets must be documented in the brief/prompt (no design drift)
+ *  - an external-AI prompt without its design brief is an error (prompts derive
+ *    from briefs)
  */
 import fs from 'node:fs';
 import path from 'node:path';
@@ -117,6 +122,48 @@ for (const site of sites) {
   }
 
   if (todos) warn(`sites/${site}: ${todos} TODO stub(s) still open — see the stub list in sites/${site}/README.md`);
+
+  // design-token sync between the written design (brief / external-AI prompt) and the built CSS
+  const HEX = /#[0-9a-fA-F]{6}\b/g;
+  const docs = [`briefs/${site}-design-brief.md`, `briefs/${site}-external-ai-prompt.md`]
+    .filter((p) => fs.existsSync(path.join(ROOT, p)));
+  const cssFiles = [];
+  (function collectCss(dir) {
+    for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+      const p = path.join(dir, e.name);
+      if (e.isDirectory()) collectCss(p);
+      else if (e.name.endsWith('.css')) cssFiles.push(p);
+    }
+  })(siteDir);
+  if (docs.length && cssFiles.length) {
+    const cssText = cssFiles.map((f) => fs.readFileSync(f, 'utf8')).join('\n');
+    const cssHex = new Set((cssText.match(HEX) || []).map((h) => h.toLowerCase()));
+    const docHex = new Set();
+    for (const doc of docs) {
+      for (const h of fs.readFileSync(path.join(ROOT, doc), 'utf8').match(HEX) || []) {
+        docHex.add(h.toLowerCase());
+        if (!cssHex.has(h.toLowerCase())) err(`${doc}: specifies ${h} but no stylesheet in sites/${site}/ uses it — the written design and the built site have drifted; update whichever is wrong`);
+      }
+    }
+    // :root custom-property tokens are the site's design system — the docs must know them
+    for (const rootBlock of cssText.matchAll(/:root\s*{([^}]*)}/g)) {
+      for (const h of rootBlock[1].match(HEX) || []) {
+        if (!docHex.has(h.toLowerCase())) warn(`sites/${site}: :root token ${h} is not documented in the brief/prompt — update them so the written design matches the built one`);
+      }
+    }
+  }
+}
+
+// external-AI prompts derive from design briefs — never orphaned
+if (fs.existsSync(path.join(ROOT, 'briefs'))) {
+  for (const f of fs.readdirSync(path.join(ROOT, 'briefs'))) {
+    const m = f.match(/^(.+)-external-ai-prompt\.md$/);
+    if (!m) continue;
+    if (!fs.existsSync(path.join(ROOT, 'briefs', `${m[1]}-design-brief.md`)))
+      err(`briefs/${f}: no matching ${m[1]}-design-brief.md — prompts are derived from briefs, write the brief first`);
+    if (!sites.includes(m[1]))
+      warn(`briefs/${f}: no site at sites/${m[1]}/ yet — fine while the site is being built externally, but import the result when done`);
+  }
 }
 
 for (const e of errors) console.log(`✗ ${e}`);

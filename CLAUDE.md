@@ -36,6 +36,25 @@ the same contract, so any future session can maintain any site without archaeolo
   description, viewport, correct `lang` attribute (pages under `nl/` are `lang="nl"`),
   resolving internal links and assets, `alt` on images, balanced structural tags.
 
+## External-AI round-trip (optional per site)
+
+A site's design can be developed in an external AI builder (Lovable, v0, Framer, …).
+The workflow:
+
+1. Write `briefs/<slug>-external-ai-prompt.md` — a self-contained prompt **derived
+   from the design brief** (never write a prompt without a brief; the validator
+   errors on orphans). It must carry the same design tokens, page specs, and the
+   honest-placeholder constraints (no invented testimonials/clients/emails).
+2. The owner pastes it into the external tool and iterates there.
+3. When a result comes back, import it into `sites/<slug>/` (or a variant folder for
+   comparison) — it is then held to the full site contract like anything built here.
+4. **The brief, the prompt, and the built site must not drift.** The validator
+   enforces the mechanical part: every hex color a brief/prompt specifies must exist
+   in the site's stylesheets, and every `:root` token in the site's CSS must be
+   documented in the brief/prompt. If a design decision changes, change all three in
+   the same commit. Non-mechanical drift (page structure, CTA hierarchy, voice) is on
+   you — re-read the brief after any external import.
+
 ## Verification
 
 ```
